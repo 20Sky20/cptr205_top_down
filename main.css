@@ -1,0 +1,25 @@
+:root {
+    box-sizing: border-box;
+}
+
+*,
+::before,
+::after {
+    box-sizing: inherit;
+    margin: 0;
+    padding: 0;
+}
+
+body{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #888;
+}
+
+canvas {
+    width: 100vmin;
+    height: 100vmin;
+    background-color: #fff;
+}
