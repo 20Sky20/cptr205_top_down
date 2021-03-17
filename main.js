@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
 
     //Initialize Image
     const player_avatar = new Image();
-    player_avatar.src = 'image/sprite_sheet_turtle1.png'
+    player_avatar.src = 'images/sprite_sheet_turtle1.png'
     //Animation
     const img_side = 16;
     const animation = timestamp => {
