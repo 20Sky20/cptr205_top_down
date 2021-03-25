@@ -55,10 +55,18 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         if(parsed.Game != GAME ||parsed.Name === NAME){
             return;
         }
+        if(parsed.Message === 'goodbye') {
+            delete oplayer[parsed.Name];
+            return;
+        }
         oplayers[parsed.Name] = JSON.parse(parsed.Message);
     });
     const oplayer_avatar = new Image();
     oplayer_avatar.src = 'images/sprite_sheet_orange.png';
+    socket.addEventListener('beforeunload', beforeunload => {
+        send('goodbye');
+        beforeunload['returnValue'] = null;
+    });
 
     // Patterns
     const patterns = {};
@@ -127,8 +135,11 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     rigid_bodies.push(new Rigid_body(364, -256, 20, 640));
     rigid_bodies.push(new Rigid_body(-384, 364, 768, 20));
 
+    //Hearts
+    let heart = 3;
+
     // Donuts
-    class Donuts {
+    class Donut {
         constructor(x, y) {
             this.x = x; 
             this.y = y; 
@@ -138,7 +149,11 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     }
     const donuts = [];
 
-    donuts.push(new Donuts(64, 64));
+    donuts.push(new Donut(32, 88));
+    donuts.push(new Donut(-192, 184));
+    donuts.push(new Donut(-344, -48));
+    donuts.push(new Donut(40, -24));
+    donuts.push(new Donut(232, 272));
 
     let donut = 0;
 
@@ -269,30 +284,38 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         });
 
         //donut detection
-        render.fillStyle = 'patterns.token_donut';
+        render.fillStyle = patterns.token_donut;
         donuts.forEach((donut, i) => {
             const bx = donut.x + donut.w / 2, by = donut.y - donut.h / 2;
             const px = x + r / 2, py = y + r / 2;
-            if(Math.sqrt(Math.pow(px - bx, 2) + Math.pow(py - by, 2)) * u < r / 2 * u) {
+            if(Math.sqrt(Math.pow(px - bx, 2) + Math.pow(py - by, 2)) < r / 2) {
 
                 donuts.splice(i, 1);
                 donut++;
                 return;
             }
-            render.fillRect(64, 64, 16, 16)
+            render.fillRect(donut.x,donut.y, 8,8);
         });
 
         Object.values(oplayers).forEach(oplayer => {
             render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
+            if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
+                console.log('COLLISION');
+            }
         });
         render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
         render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
         render.restore();
 
-        //Donut Text Box
+        //Pod Text Box
         render.fillStyle = '#fff';
         render.font = 'bold 70px arial';
-        render.fillText(`DONUTS: ${donut}`, 600, 120);
+        render.fillText(`PODS: ${donut}`, 1250, 100);
+
+        //Health Text Box
+        render.fillStyle = '#fff';
+        render.font = 'bold 70px arial';
+        render.fillText(`HEALTH: ${heart}`, 50, 100);
 
         window.requestAnimationFrame(animation);
     };
