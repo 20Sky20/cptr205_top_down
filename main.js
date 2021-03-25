@@ -1,4 +1,10 @@
 window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
+
+    //Initialize Websocket
+    const socket = new WebSocket('wss://southwestern.media/game_dev');
+    socket.addEventListener('open', open => {
+        console.log('WEBSOCKET STARTED');
+    });
     
     // CANVAS INIT, we have to resize the window to fit the screen based on the different screen sizes. So we
     // are rendering it to the clients computer size so it can reduce if the window is shrunk down or increase
@@ -15,12 +21,13 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     resize();
     window.addEventListener('resize', resize);
 
-    //Initialize Image: how we implement our sprite sheet onto our canvas.
+    //Initialize Sprite Image
     const player_avatar = new Image();
-    player_avatar.src = 'images/sprite_sheet_turtle.png'
+    player_avatar.src = 'images/sprite_sheet_watermelon.png';
+    const enemy_turtle1 = new Image();
+    enemy_turtle1.src = 'images/sprite_sheet_turtle2.png';
 
-    //Player Input: starting with the arrow keys on false and making them true with key downs to allow for 
-    // whether or not pushing a certain key will move the sprite and letting go of said key will stop the sprite.
+    //Player Input
     const movement = {ArrowRight:false, ArrowLeft:false, ArrowDown:false, ArrowUp:false};
     document.addEventListener('keydown', keydown => {
         if(movement.hasOwnProperty(keydown.key)){
@@ -33,6 +40,54 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         }
     });
 
+    //AI Input
+    const aimovement = {ArrowRight:false, ArrowLeft:false, ArrowDown:false, ArrowUp:false};
+
+    //Other Players
+    const GAME = 'skyler_top_down';
+    const NAME = Math.random().toString();
+    const oplayers = {};
+    const send = message => {
+        socket.send(JSON.stringify({Game: GAME, Name: NAME, Message: message}));
+    };
+    socket.addEventListener('message', message => {
+        const parsed = JSON.parse(message.data);
+        if(parsed.Game != GAME ||parsed.Name === NAME){
+            return;
+        }
+        oplayers[parsed.Name] = JSON.parse(parsed.Message);
+    });
+    const oplayer_avatar = new Image();
+    oplayer_avatar.src = 'images/sprite_sheet_orange.png';
+
+    // Patterns
+    const patterns = {};
+    const melon = new Image();
+    melon.src = 'wallpapers/watermelonwall.png';
+    melon.addEventListener('load', load => {
+        patterns.melon = render.createPattern(melon, 'repeat');
+    });
+    const star = new Image();
+    star.src = 'wallpapers/galaxyfloor.png';
+    star.addEventListener('load', load => {
+        patterns.star = render.createPattern(star, 'repeat');
+    });
+    const plow = new Image();
+    plow.src = 'wallpapers/plowed.png';
+    plow.addEventListener('load', load => {
+        patterns.plow = render.createPattern(plow, 'repeat');
+    });
+    const grass1 = new Image();
+    grass1.src = 'wallpapers/grass1.png';
+    grass1.addEventListener('load', load => {
+        patterns.grass1 = render.createPattern(grass1, 'repeat');
+    });
+    const token_donut = new Image();
+    token_donut.src = 'wallpapers/token_donut.png';
+    token_donut.addEventListener('load', load => {
+        patterns.token_donut = render.createPattern(token_donut, 'repeat');
+    });
+
     // Rigid Body: outline for the solid object
     class Rigid_body {
         constructor(x, y, w, h){
@@ -43,41 +98,106 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         }
     }
     const rigid_bodies = [];
-    rigid_bodies.push(new Rigid_body(64, 64, 32, 40));
 
-    //Animation: going image by image to allow the sprite to look like it's moving.
-    //We also have our background here and the translate which allows us to go off screen and get put onto a new one.
+    //InnerWalls
+    rigid_bodies.push(new Rigid_body(-10, -10, 20, 148));
+    rigid_bodies.push(new Rigid_body(0, -10, 128, 20));
+    rigid_bodies.push(new Rigid_body(118, -10, 20, 148));
+    rigid_bodies.push(new Rigid_body(0, 118, 100, 20));
+
+    //HayBales
+    rigid_bodies.push(new Rigid_body(70, 158, 20, 20));
+    rigid_bodies.push(new Rigid_body(25, 220, 20, 20));
+    rigid_bodies.push(new Rigid_body(-10, 183, 20, 20));
+    rigid_bodies.push(new Rigid_body(-100, 143, 20, 20));
+    rigid_bodies.push(new Rigid_body(-138, 203, 20, 20));
+    rigid_bodies.push(new Rigid_body(-62, 165, 20, 20));
+    rigid_bodies.push(new Rigid_body(144, 168, 20, 20));
+    rigid_bodies.push(new Rigid_body(204, 208, 20, 20));
+    rigid_bodies.push(new Rigid_body(213, 149, 20, 20));
+    rigid_bodies.push(new Rigid_body(233, 64, 20, 20));
+    rigid_bodies.push(new Rigid_body(160, 32, 20, 20));
+    rigid_bodies.push(new Rigid_body(-118, 64, 20, 20));
+    rigid_bodies.push(new Rigid_body(-160, 88, 20, 20));
+    rigid_bodies.push(new Rigid_body(-200, 40, 20, 20));
+
+    //OuterBorder
+    rigid_bodies.push(new Rigid_body(-384, -256, 20, 640));
+    rigid_bodies.push(new Rigid_body(-384, -256, 768, 20));
+    rigid_bodies.push(new Rigid_body(364, -256, 20, 640));
+    rigid_bodies.push(new Rigid_body(-384, 364, 768, 20));
+
+    // Donuts
+    class Donuts {
+        constructor(x, y) {
+            this.x = x; 
+            this.y = y; 
+            this.w = 5; 
+            this.h = 5;
+        }
+    }
+    const donuts = [];
+
+    donuts.push(new Donuts(64, 64));
+
+    let donut = 0;
+
+    //Animation
     let frame_number = false;
     let frame_count = 0;
+    let aframe_number = false;
+    let aframe_count = 0;
     let player_direction = 0;
+    let ai_direction = 0;
     const img_side = 16;
-    let x = 16, y = 16;
+    let x = 16, y = 16, r = 16;
+    let ax = -56, ay = 123;
     const animation = timestamp => {
         frame_count++;
+        aframe_count++;
         render.clearRect(0, 0, w, h);
         render.fillRect(w/2, h/2, u, u);
-        render.fillStyle = '#540';
-        render.fillRect(0, 0, w, h);
         render.save();
-        render.translate(-Math.floor(x / U_SCALE) * w, -Math.floor(y / U_SCALE) * h);
+        render.scale(u, u);
+        //render.fillStyle = '#000';
+        //render.fillRect(-128, -128, 384, 384);
+        //render.fillStyle = '#020';
+        //render.fillRect(0, 0, 100, 100);
+        render.translate(-Math.floor(x / U_SCALE) * U_SCALE, -Math.floor(y / U_SCALE) * U_SCALE);
 
 
-        //Player Physics: I understood what the movement did but was unable to get the commented piece of code to
-        // work. For some reason when I tried my sprite stopped changing directions and only would alternate between
-        // image 0 looking to the right and image 1 looking to the right. 
+        //Player Physics
         let left = movement.ArrowLeft, right = movement.ArrowRight, up = movement.ArrowUp, down = movement.ArrowDown;
         let vx = +right - +left;
         let vy = +down - +up;
-        //if(right || up || left || down){
-            let player_direction = left ? 1 : up ? 2 : down ? 3: 0;
-            if(frame_count % 30 == 0) {
+        if(right || up || left || down){
+            player_direction = right ? 1 : up ? 2 : down ? 3: 0;
+            if(frame_count % 10 == 0) {
                 frame_number = !frame_number;
             }
-        //}
+        }
 
-        // Colliders: it takes the invisible box around the sprite and the box around the square and doesn't allow
-        //either to go through one another. When the sprite is right next to it, we make our sprite unable to move into
-        // it by setting our velocity to 0 so it stops when it collides.
+        for (var key in aimovement) {
+            if (aimovement.hasOwnProperty(key)) {     
+                if(Math.random() <= .01){
+                    aimovement[key] = !aimovement[key]
+                }   
+            }
+        }
+
+        let aleft = aimovement.ArrowLeft, aright = aimovement.ArrowRight, aup = aimovement.ArrowUp, adown = aimovement.ArrowDown;
+        let avx = +aright - +aleft;
+        let avy = +adown - +aup;
+        if(aright || aup || aleft || adown){
+            ai_direction = aright ? 1 : aup ? 2 : adown ? 3: 0;
+            if(aframe_count % 10 == 0) {
+                aframe_number = !aframe_number;
+            }
+        }
+
+        
+
+        // Colliders
         rigid_bodies.forEach(rigid_body => {
             if(rigid_body.y <= y + img_side && y < rigid_body.y + rigid_body.h){
                 if(x + img_side <= rigid_body.x && rigid_body.x < x + img_side + vx){
@@ -100,21 +220,79 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
                 }
             }
 
+            if(rigid_body.y <= ay + img_side && ay < rigid_body.y + rigid_body.h){
+                if(ax + img_side <= rigid_body.x && rigid_body.x < ax + img_side + avx){
+                    avx = 0;
+                    ax = rigid_body.x - img_side;
+                    aimovement.right = false
+                }
+                if(rigid_body.x + rigid_body.w <= ax && ax + avx < rigid_body.x + rigid_body.w){
+                    avx = 0;
+                    ax = rigid_body.x + rigid_body.w;
+                    aimovement.left = false
+                }
+            }
+            if(rigid_body.x <= ax + img_side && ax < rigid_body.x + rigid_body.w){
+                if(ay + img_side <= rigid_body.y && rigid_body.y < ay + img_side + avy){
+                    avy = 0;
+                    ay = rigid_body.y - img_side;
+                    aimovement.down = false
+                }
+                if(rigid_body.y + rigid_body.h <= ay && ay + avy < rigid_body.y + rigid_body.h){
+                    avy = 0;
+                    ay = rigid_body.y + rigid_body.h;
+                    aimovement.up = false
+                }
+            }
+
         });
         x += vx;
         y += vy;
+        ax += avx;
+        ay += avy;
+        if(vx || vy){
+            send(JSON.stringify({x: x, y: y}));
+        }
 
 
         //Render Dynamic Objects
-        render.fillStyle = '#550';
-        render.fillRect(0, 0, w, h);
-        render.fillStyle = '#222';
+        render.fillStyle = patterns.grass1;
+        render.fillRect(-384, -256, 768, 640);
+        render.fillStyle = patterns.plow;
+        render.fillRect(-256, -128, 512, 384);
+        
+        render.fillStyle = patterns.star;
+        render.fillRect(0, 0, 128, 128);
+        render.fillStyle = patterns.melon;
         rigid_bodies.forEach(rigid_body => {
-            render.fillRect(rigid_body.x * u, rigid_body.y * u, rigid_body.w * u, rigid_body.h * u);
+            render.fillRect(rigid_body.x, rigid_body.y, rigid_body.w, rigid_body.h);
         });
 
-        render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x*u, y*u, img_side*u, img_side*u);
+        //donut detection
+        render.fillStyle = 'patterns.token_donut';
+        donuts.forEach((donut, i) => {
+            const bx = donut.x + donut.w / 2, by = donut.y - donut.h / 2;
+            const px = x + r / 2, py = y + r / 2;
+            if(Math.sqrt(Math.pow(px - bx, 2) + Math.pow(py - by, 2)) * u < r / 2 * u) {
+
+                donuts.splice(i, 1);
+                donut++;
+                return;
+            }
+            render.fillRect(64, 64, 16, 16)
+        });
+
+        Object.values(oplayers).forEach(oplayer => {
+            render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
+        });
+        render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
+        render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
         render.restore();
+
+        //Donut Text Box
+        render.fillStyle = '#fff';
+        render.font = 'bold 70px arial';
+        render.fillText(`DONUTS: ${donut}`, 600, 120);
 
         window.requestAnimationFrame(animation);
     };
