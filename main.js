@@ -6,9 +6,7 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         console.log('WEBSOCKET STARTED');
     });
     
-    // CANVAS INIT, we have to resize the window to fit the screen based on the different screen sizes. So we
-    // are rendering it to the clients computer size so it can reduce if the window is shrunk down or increase
-    // if the window is made bigger.
+    // CANVAS INIT
     const render = document.querySelector('canvas').getContext('2d');
     const U_SCALE = 128;
     let w, h, u;
@@ -24,8 +22,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     //Initialize Sprite Image
     const player_avatar = new Image();
     player_avatar.src = 'images/sprite_sheet_watermelon.png';
-    const enemy_turtle1 = new Image();
-    enemy_turtle1.src = 'images/sprite_sheet_turtle2.png';
 
     //Player Input
     const movement = {ArrowRight:false, ArrowLeft:false, ArrowDown:false, ArrowUp:false};
@@ -42,6 +38,9 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
 
     //AI Input
     const aimovement = {ArrowRight:false, ArrowLeft:false, ArrowDown:false, ArrowUp:false};
+    const enemies = {};
+    const enemy_turtle1 = new Image();
+    enemy_turtle1.src = 'images/sprite_sheet_turtle2.png';
 
     //Other Players
     const GAME = 'skyler_top_down';
@@ -135,11 +134,11 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     rigid_bodies.push(new Rigid_body(364, -256, 20, 640));
     rigid_bodies.push(new Rigid_body(-384, 364, 768, 20));
 
-    //Hearts
-    let heart = 3;
+    //Hearts(Health)
+    let heart = 100;
 
-    // Donuts
-    class Donut {
+    // Pods(Collect)
+    class Pod {
         constructor(x, y) {
             this.x = x; 
             this.y = y; 
@@ -147,15 +146,15 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             this.h = 5;
         }
     }
-    const donuts = [];
+    const pods = [];
 
-    donuts.push(new Donut(32, 88));
-    donuts.push(new Donut(-192, 184));
-    donuts.push(new Donut(-344, -48));
-    donuts.push(new Donut(40, -24));
-    donuts.push(new Donut(232, 272));
+    pods.push(new Pod(32, 88));
+    pods.push(new Pod(-192, 184));
+    pods.push(new Pod(-344, -48));
+    pods.push(new Pod(40, -24));
+    pods.push(new Pod(232, 272));
 
-    let donut = 0;
+    let pod = 0;
 
     //Animation
     let frame_number = false;
@@ -191,7 +190,7 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
                 frame_number = !frame_number;
             }
         }
-
+        //AI Physics
         for (var key in aimovement) {
             if (aimovement.hasOwnProperty(key)) {     
                 if(Math.random() <= .01){
@@ -283,39 +282,60 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             render.fillRect(rigid_body.x, rigid_body.y, rigid_body.w, rigid_body.h);
         });
 
-        //donut detection
-        render.fillStyle = patterns.token_donut;
-        donuts.forEach((donut, i) => {
-            const bx = donut.x + donut.w / 2, by = donut.y - donut.h / 2;
-            const px = x + r / 2, py = y + r / 2;
-            if(Math.sqrt(Math.pow(px - bx, 2) + Math.pow(py - by, 2)) < r / 2) {
+         //Pod Collision
+         render.fillStyle = patterns.token_donut;
+         pods.forEach((pod, i) => {
+             const bx = pod.x + pod.w / 2, by = pod.y - pod.h / 2;
+             const px = x + r / 2, py = y + r / 2;
+             render.fillRect(pod.x, pod.y, 8, 8)
+             if(Math.sqrt(Math.pow(px - bx, 2) + Math.pow(py - by, 2)) < r / 2) {
+                 pods.splice(i, 1);
+                 heart = 100;
+                 pod++;
+                 return;
+             }
+         });
 
-                donuts.splice(i, 1);
-                donut++;
-                return;
-            }
-            render.fillRect(donut.x,donut.y, 8,8);
-        });
 
         Object.values(oplayers).forEach(oplayer => {
             render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
             if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
-                console.log('COLLISION');
+                heart--;
+                return;
             }
         });
-        render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
         render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
+        render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
         render.restore();
+
 
         //Pod Text Box
         render.fillStyle = '#fff';
         render.font = 'bold 70px arial';
-        render.fillText(`PODS: ${donut}`, 1250, 100);
+        render.fillText(`PODS: ${pod}`, 1200, 100);
 
         //Health Text Box
         render.fillStyle = '#fff';
         render.font = 'bold 70px arial';
         render.fillText(`HEALTH: ${heart}`, 50, 100);
+        if(heart == 0){
+            console.log("GAME OVER");
+            x = 16;
+            y = 16;
+            pods.splice(0,pods.length)
+            heart = 100;
+            pod = 0;
+            pods.push(new Pod(32, 88));
+            pods.push(new Pod(-192, 184));
+            pods.push(new Pod(-344, -48));
+            pods.push(new Pod(40, -24));
+            pods.push(new Pod(232, 272));
+            render.fillStyle ='#f00'
+            render.fillRect(0, 0, w, h)
+            render.fillStyle = '#000';
+            render.fillText('GAME OVER', w , h );
+            
+        }
 
         window.requestAnimationFrame(animation);
     };
