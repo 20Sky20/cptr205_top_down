@@ -24,10 +24,16 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     player_avatar.src = 'images/sprite_sheet_watermelon.png';
 
     //Player Input
+    let x = 16, y = 16, r = 16;
     const movement = {ArrowRight:false, ArrowLeft:false, ArrowDown:false, ArrowUp:false};
+    let player_direction = 0;
     document.addEventListener('keydown', keydown => {
         if(movement.hasOwnProperty(keydown.key)){
             movement[keydown.key] = true;
+        }
+        if(keydown.key === ' ') {
+            send(JSON.stringify({projectile: true, direction: player_direction, x: x, y: y, fill: '#f00'})); 
+            my_projectiles.push(new Projectile(player_direction, x, y, '#0ff', true)); 
         }
     });
     document.addEventListener('keyup', keyup => {
@@ -58,7 +64,14 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             delete oplayer[parsed.Name];
             return;
         }
-        oplayers[parsed.Name] = JSON.parse(parsed.Message);
+        const Message = JSON.parse(parsed.Message);
+
+        // HANDLE PROJECTILE MESSAGES
+        if(Message.projectile) {
+            enemy_projectiles.push(new Projectile(Message.direction, Message.x, Message.y, Message.fill, false)); 
+            return; 
+        }
+        oplayers[parsed.Name] = Message; 
     });
     const oplayer_avatar = new Image();
     oplayer_avatar.src = 'images/sprite_sheet_orange.png';
@@ -134,8 +147,29 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     rigid_bodies.push(new Rigid_body(364, -256, 20, 640));
     rigid_bodies.push(new Rigid_body(-384, 364, 768, 20));
 
+    // PROJECTILES
+    const my_projectiles = [], enemy_projectiles = []; 
+    class Projectile {
+        constructor(direction, x, y, fill, is_mine) {
+            this.vx = direction === 0 ? -1 : direction === 1 ? 1 : 0; // THESE DEFINITIONS ARE BASED ON THE DIRECTION VARIABLE SET IN THE PHYSICS PORTION OF THE ANIMATION LOOP ("player_direction = right ? 1 : up ? 2 : down ? 3: 0;")
+            this.vy = direction === 2 ? -1 : direction === 3 ? 1 : 0; 
+            this.x = x + 8; 
+            this.y = y + 8; 
+            this.fill = fill; 
+            this.is_mine = is_mine; 
+        }
+
+        render() {
+            render.fill = this.fill; 
+            render.fillRect(this.x += this.vx, this.y += this.vy, 1, 1); 
+            if(this.x % U_SCALE === 0 || this.y % U_SCALE === 0) { // IF THE PROJECTILE HITS THE SPACE BETWEEN SCREENS (THE REMAINDER IS ZERO)
+                this.is_mine ? my_projectiles.splice(my_projectiles.indexOf(this), 1) : enemy_projectiles.splice(enemy_projectiles.indexOf(this), 1); // REMOVE THE PROJECTILE FROM THE APPROPRIATE LIST
+            }
+        }
+    }
+
     //Hearts(Health)
-    let heart = 100;
+    let heart = 10;
 
     // Pods(Collect)
     class Pod {
@@ -161,10 +195,8 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
     let frame_count = 0;
     let aframe_number = false;
     let aframe_count = 0;
-    let player_direction = 0;
     let ai_direction = 0;
     const img_side = 16;
-    let x = 16, y = 16, r = 16;
     let ax = -56, ay = 123;
     const animation = timestamp => {
         frame_count++;
@@ -208,8 +240,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
                 aframe_number = !aframe_number;
             }
         }
-
-        
 
         // Colliders
         rigid_bodies.forEach(rigid_body => {
@@ -268,7 +298,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             send(JSON.stringify({x: x, y: y}));
         }
 
-
         //Render Dynamic Objects
         render.fillStyle = patterns.grass1;
         render.fillRect(-384, -256, 768, 640);
@@ -296,18 +325,31 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
              }
          });
 
-
-        Object.values(oplayers).forEach(oplayer => {
-            render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
-            if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
-                heart--;
-                return;
+         Object.values(oplayers).forEach(oplayer => {
+             render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
+             if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
+                 heart--;
+                 return;
+             }
+         });
+         
+         //  PROJECTILES
+         my_projectiles.forEach(projectile => {
+            projectile.render(); 
+            // COULD CHECK HERE IF WE'VE HIT SOMEONE ELSE, BUT SINCE EACH PROJECTILE CLIENT IS DOING THE COLLISION CHECK INTERNALLY THAT WOULD BE MISLEADING
+        }); 
+        enemy_projectiles.forEach(projectile => {
+            projectile.render(); 
+            if(x <= projectile.x && projectile.x < x + img_side && y <= projectile.y && projectile.y < y + img_side) {
+                console.log('YOU\'VE BEEN HIT'); 
+                enemy_projectiles.splice(enemy_projectiles.indexOf(projectile), 1); // STOP THE PROJECTILE FROM PROPAGATING
+                --heart; 
             }
-        });
+        }); 
         render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
         render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
+         
         render.restore();
-
 
         //Pod Text Box
         render.fillStyle = '#fff';
@@ -334,7 +376,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             render.fillRect(0, 0, w, h)
             render.fillStyle = '#000';
             render.fillText('GAME OVER', w , h );
-            
         }
 
         window.requestAnimationFrame(animation);
