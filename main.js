@@ -161,7 +161,11 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
 
         render() {
             render.fill = this.fill; 
+<<<<<<< HEAD
             render.fillRect(this.x += this.vx, this.y += this.vy, 3, 3); 
+=======
+            render.fillRect(this.x += this.vx, this.y += this.vy, 1, 1); 
+>>>>>>> 7a1a267e9ad1126ac169e908abbee185c3a7bfa3
             if(this.x % U_SCALE === 0 || this.y % U_SCALE === 0) { // IF THE PROJECTILE HITS THE SPACE BETWEEN SCREENS (THE REMAINDER IS ZERO)
                 this.is_mine ? my_projectiles.splice(my_projectiles.indexOf(this), 1) : enemy_projectiles.splice(enemy_projectiles.indexOf(this), 1); // REMOVE THE PROJECTILE FROM THE APPROPRIATE LIST
             }
@@ -241,8 +245,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             }
         }
 
-        
-
         // Colliders
         rigid_bodies.forEach(rigid_body => {
             if(rigid_body.y <= y + img_side && y < rigid_body.y + rigid_body.h){
@@ -301,7 +303,6 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             send(JSON.stringify({x: x, y: y}));
         }
 
-
         //Render Dynamic Objects
         render.fillStyle = patterns.grass1;
         render.fillRect(-384, -256, 768, 640);
@@ -329,13 +330,27 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
              }
          });
 
-
-        Object.values(oplayers).forEach(oplayer => {
-            render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
-            if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
-                heart--;
-                return;
+         Object.values(oplayers).forEach(oplayer => {
+             render.drawImage(oplayer_avatar, 0, 0, img_side, img_side, oplayer.x, oplayer.y, img_side, img_side);
+             if(oplayer.x < x + img_side && x < oplayer.x + img_side && oplayer.y < y + img_side && y < oplayer.y + img_side) {
+                 heart--;
+                 return;
+             }
+         });
+         
+         //  PROJECTILES
+         my_projectiles.forEach(projectile => {
+            projectile.render(); 
+            // COULD CHECK HERE IF WE'VE HIT SOMEONE ELSE, BUT SINCE EACH PROJECTILE CLIENT IS DOING THE COLLISION CHECK INTERNALLY THAT WOULD BE MISLEADING
+        }); 
+        enemy_projectiles.forEach(projectile => {
+            projectile.render(); 
+            if(x <= projectile.x && projectile.x < x + img_side && y <= projectile.y && projectile.y < y + img_side) {
+                console.log('YOU\'VE BEEN HIT'); 
+                enemy_projectiles.splice(enemy_projectiles.indexOf(projectile), 1); // STOP THE PROJECTILE FROM PROPAGATING
+                --heart; 
             }
+<<<<<<< HEAD
         });
         //  PROJECTILES
         my_projectiles.forEach(projectile => {
@@ -355,8 +370,13 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
         render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
         render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
 
+=======
+        }); 
+        render.drawImage(enemy_turtle1, +aframe_number * img_side, ai_direction * img_side, img_side, img_side, ax, ay, img_side, img_side);
+        render.drawImage(player_avatar, +frame_number * img_side, player_direction * img_side, img_side, img_side, x, y, img_side, img_side);
+         
+>>>>>>> 7a1a267e9ad1126ac169e908abbee185c3a7bfa3
         render.restore();
-
 
         //Pod Text Box
         render.fillStyle = '#fff';
@@ -382,8 +402,12 @@ window.addEventListener('DOMContentLoaded', DOMContentLoaded => {
             render.fillStyle ='#f00'
             render.fillRect(0, 0, w, h)
             render.fillStyle = '#000';
+<<<<<<< HEAD
             render.fillText('GAME OVER', w / 2, h / 2);
             
+=======
+            render.fillText('GAME OVER', w , h );
+>>>>>>> 7a1a267e9ad1126ac169e908abbee185c3a7bfa3
         }
 
         window.requestAnimationFrame(animation);
